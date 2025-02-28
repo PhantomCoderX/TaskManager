@@ -1,0 +1,19 @@
+# Java
+*.class
+*.jar
+*.war
+*.ear
+target/
+
+# Node
+node_modules/
+npm-debug.log*
+.npm
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Docker
+*.log
