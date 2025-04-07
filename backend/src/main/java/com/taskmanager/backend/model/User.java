@@ -18,7 +18,7 @@ public class User {
     private String email;
 
     @Column(nullable = false)
-    private String passwordHash;
+    private String passwordHash; // Обновлено: поле хранения хэша пароля
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -26,6 +26,13 @@ public class User {
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
+    }
+
+    public User() {}
+
+    public User(String email, String passwordHash) {
+        this.email = email;
+        this.passwordHash = passwordHash;
     }
 
     // Геттеры и сеттеры
