@@ -2,6 +2,8 @@ package com.taskmanager.backend.service;
 
 import com.taskmanager.backend.model.User;
 import com.taskmanager.backend.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -11,14 +13,17 @@ import java.util.Optional;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    // Внедрение через конструктор
-    public UserService(UserRepository userRepository) {
+    @Autowired
+    public UserService(UserRepository userRepository,
+                       PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     public User registerUser(String username, String email, String rawPassword) {
-        User user = new User(email, rawPassword);
+        User user = new User(email, passwordEncoder.encode(rawPassword));
         user.setUsername(username);
         return userRepository.save(user);
     }
@@ -31,13 +36,18 @@ public class UserService {
         return userRepository.findAll();
     }
 
-    public User updateUser(Long id, String username, String email, String rawPassword) {
+    public User updateUser(Long id,
+                           String username,
+                           String email,
+                           String rawPassword) {
         Optional<User> optionalUser = userRepository.findById(id);
-        if(optionalUser.isPresent()){
+        if (optionalUser.isPresent()) {
             User user = optionalUser.get();
             user.setUsername(username);
             user.setEmail(email);
-            user.setPasswordHash(rawPassword);
+            if (rawPassword != null && !rawPassword.isEmpty()) {
+                user.setPasswordHash(passwordEncoder.encode(rawPassword));
+            }
             return userRepository.save(user);
         }
         return null;
@@ -49,10 +59,20 @@ public class UserService {
 
     public boolean authenticate(String email, String rawPassword) {
         Optional<User> userOptional = userRepository.findByEmail(email);
-        if (userOptional.isPresent()) {
-            User user = userOptional.get();
-            return rawPassword.equals(user.getPasswordHash());
+        return userOptional
+                .map(u -> passwordEncoder.matches(rawPassword, u.getPasswordHash()))
+                .orElse(false);
+    }
+
+    public void changePassword(String email,
+                               String oldRawPassword,
+                               String newRawPassword) {
+        User u = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        if (!passwordEncoder.matches(oldRawPassword, u.getPasswordHash())) {
+            throw new RuntimeException("Old password is incorrect");
         }
-        return false;
+        u.setPasswordHash(passwordEncoder.encode(newRawPassword));
+        userRepository.save(u);
     }
 }
