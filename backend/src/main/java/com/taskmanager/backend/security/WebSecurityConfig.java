@@ -8,6 +8,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -15,6 +16,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
+@EnableWebSecurity
 public class WebSecurityConfig {
 
     private final UserDetailsServiceImpl userDetailsService;
@@ -29,25 +31,27 @@ public class WebSecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // отключаем CSRF, т.к. у нас stateless API
+                // 1. Без CSRF, т.к. stateless REST API
                 .csrf(csrf -> csrf.disable())
 
-                // без сессий
+                // 2. Stateless-сессии
                 .sessionManagement(sm -> sm
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
 
-                // права доступа
+                // 3. Права доступа
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/**", "/users").permitAll()
+                        // всё, что в /auth/**, открыто (login, register, refresh-token и т.д.)
+                        .requestMatchers("/auth/**").permitAll()
+                        // остальные требуют валидного JWT
                         .anyRequest().authenticated()
                 )
 
-                // добавляем наш фильтр проверки JWT перед стандартным
-                .addFilterBefore(authTokenFilter, UsernamePasswordAuthenticationFilter.class);
+                // 4. Зарегистрировать наш DAO-провайдер
+                .authenticationProvider(daoAuthenticationProvider())
 
-        // указываем, куда дергать наш DAO-провайдер
-        http.authenticationProvider(daoAuthenticationProvider());
+                // 5. Добавить JWT-фильтр _до_ стандартного UsernamePasswordAuthenticationFilter
+                .addFilterBefore(authTokenFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

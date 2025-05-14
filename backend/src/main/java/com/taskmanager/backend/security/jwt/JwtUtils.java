@@ -13,22 +13,18 @@ import java.util.Date;
 public class JwtUtils {
 
     @Value("${jwt.secret}")
-    private String jwtSecret;               // должен быть ≥ 32 байт для HS256
+    private String jwtSecret;               // минимум 32 байта
 
     @Value("${jwt.expirationMs}")
-    private int jwtExpirationMs;
+    private long jwtExpirationMs;           // TTL access-токена
 
-    /**
-     * Генерируем SigningKey из UTF-8 строки.
-     * Строка в application.properties должна быть минимум 32 символа.
-     */
+    @Value("${jwt.refreshExpirationMs}")
+    private long jwtRefreshExpirationMs;    // TTL refresh-токена
+
     private Key getSigningKey() {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
     }
 
-    /**
-     * Создаёт JWT с алгоритмом HS256
-     */
     public String generateJwtToken(String username) {
         Date now = new Date();
         Date exp = new Date(now.getTime() + jwtExpirationMs);
@@ -36,14 +32,21 @@ public class JwtUtils {
                 .setSubject(username)
                 .setIssuedAt(now)
                 .setExpiration(exp)
-                // Переключились на HS256
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
 
-    /**
-     * Достаёт из токена имя пользователя (subject)
-     */
+    public String generateRefreshToken(String username) {
+        Date now = new Date();
+        Date exp = new Date(now.getTime() + jwtRefreshExpirationMs);
+        return Jwts.builder()
+                .setSubject(username)
+                .setIssuedAt(now)
+                .setExpiration(exp)
+                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
+                .compact();
+    }
+
     public String getUserNameFromJwtToken(String token) {
         return Jwts.parserBuilder()
                 .setSigningKey(getSigningKey())
@@ -53,19 +56,20 @@ public class JwtUtils {
                 .getSubject();
     }
 
-    /**
-     * Проверяет валидность подписи и срока жизни
-     */
-    public boolean validateJwtToken(String authToken) {
+    public boolean validateJwtToken(String token) {
         try {
             Jwts.parserBuilder()
                     .setSigningKey(getSigningKey())
                     .build()
-                    .parseClaimsJws(authToken);
+                    .parseClaimsJws(token);
             return true;
         } catch (JwtException | IllegalArgumentException e) {
-            // можно залогировать e.getMessage()
             return false;
         }
+    }
+
+    public boolean validateRefreshToken(String token) {
+        // для простоты — та же проверка, что и для access
+        return validateJwtToken(token);
     }
 }

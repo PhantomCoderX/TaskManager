@@ -1,14 +1,13 @@
+// AuthController.java
 package com.taskmanager.backend.controller.auth;
 
-import com.taskmanager.backend.dto.ChangePasswordDTO;
+import com.taskmanager.backend.dto.*;
 import com.taskmanager.backend.security.jwt.JwtUtils;
-import com.taskmanager.backend.security.service.UserDetailsImpl;
-import com.taskmanager.backend.service.UserService;
+import com.taskmanager.backend.security.service.*;
+import com.taskmanager.backend.service.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.http.*;
+import org.springframework.security.authentication.*;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
@@ -17,62 +16,69 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/auth")
 public class AuthController {
 
-    @Autowired
-    private AuthenticationManager authenticationManager;
+    @Autowired private AuthenticationManager authenticationManager;
+    @Autowired private UserService userService;
+    @Autowired private JwtUtils jwtUtils;
+    @Autowired private RefreshTokenService refreshTokenService;
+    @Autowired private UserDetailsServiceImpl userDetailsService;
 
-    @Autowired
-    private UserService userService;
-
-    @Autowired
-    private JwtUtils jwtUtils;
-
-    /* ---------- LOGIN ---------- */
+    // LOGIN → access + refresh (persisted)
     @PostMapping("/login")
-    public ResponseEntity<JwtResponse> authenticateUser(@RequestBody LoginRequest loginRequest) {
-
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        loginRequest.getEmail(),
-                        loginRequest.getPassword()
-                )
+    public ResponseEntity<JwtResponse> authenticateUser(@RequestBody LoginRequest req) {
+        Authentication auth = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(req.getEmail(), req.getPassword())
         );
+        SecurityContextHolder.getContext().setAuthentication(auth);
+        UserDetailsImpl ud = (UserDetailsImpl) auth.getPrincipal();
 
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-        String jwt = jwtUtils.generateJwtToken(userDetails.getUsername());
+        String accessToken  = jwtUtils.generateJwtToken(ud.getUsername());
+        // сохраняем и возвращаем refresh
+        var refreshToken = refreshTokenService.createRefreshToken(ud.getId());
 
         return ResponseEntity.ok(new JwtResponse(
-                jwt,
-                userDetails.getId(),
-                userDetails.getName(),
-                userDetails.getEmail()
+                accessToken,
+                refreshToken.getToken(),
+                ud.getId(),
+                ud.getName(),
+                ud.getEmail()
         ));
     }
 
-    /* ---------- REGISTER ---------- */
+    // REGISTER
     @PostMapping("/register")
-    public ResponseEntity<String> registerUser(@RequestBody SignupRequest signUpRequest) {
+    public ResponseEntity<String> registerUser(@RequestBody SignupRequest req) {
         try {
-            userService.registerUser(
-                    signUpRequest.getUsername(),
-                    signUpRequest.getEmail(),
-                    signUpRequest.getPassword()
-            );
+            userService.registerUser(req.getUsername(), req.getEmail(), req.getPassword());
             return ResponseEntity.ok("User registered successfully");
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
     }
 
-    /* ---------- CHANGE PASSWORD ---------- */
+    // CHANGE PASSWORD
     @PostMapping("/change-password")
     public ResponseEntity<String> changePassword(@RequestBody ChangePasswordDTO dto) {
-
-        String email = SecurityContextHolder.getContext()
-                .getAuthentication()
-                .getName();
-
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
         userService.changePassword(email, dto.getOldPass(), dto.getNewPass());
         return ResponseEntity.ok("Password changed successfully");
+    }
+
+    // REFRESH ACCESS TOKEN
+    @PostMapping("/refresh-token")
+    public ResponseEntity<TokenRefreshResponse> refreshToken(@RequestBody TokenRefreshRequest request) {
+        String rt = request.refreshToken();
+        return refreshTokenService.findByToken(rt)
+                .map(refreshTokenService::verifyExpiration)
+                .map(validToken -> {
+                    String username = validToken.getUser().getEmail();
+                    String newAccess = jwtUtils.generateJwtToken(username);
+                    return ResponseEntity.ok(new TokenRefreshResponse(newAccess, validToken.getToken()));
+                })
+                .orElseGet(() ->
+                        ResponseEntity
+                                .status(HttpStatus.UNAUTHORIZED)
+                                // Возвращаем «пустой» объект и ошибочный статус
+                                .body(new TokenRefreshResponse("", ""))
+                );
     }
 }

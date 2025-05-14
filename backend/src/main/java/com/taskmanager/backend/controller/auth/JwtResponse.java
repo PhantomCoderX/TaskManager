@@ -1,22 +1,42 @@
 package com.taskmanager.backend.controller.auth;
 
 public class JwtResponse {
-    private String token;
-    private String type = "Bearer";
-    private Long id;
-    private String username;
-    private String email;
+    private final String accessToken;
+    private final String refreshToken;
+    private static final String TOKEN_TYPE = "Bearer";
+    private final Long id;
+    private final String username;
+    private final String email;
 
-    public JwtResponse(String token, Long id, String username, String email) {
-        this.token = token;
+    public JwtResponse(String accessToken, String refreshToken, Long id, String username, String email) {
+        this.accessToken = accessToken;
+        this.refreshToken = refreshToken;
         this.id = id;
         this.username = username;
         this.email = email;
     }
 
-    public String getToken()    { return token; }
-    public String getType()     { return type; }
-    public Long getId()         { return id; }
-    public String getUsername(){ return username; }
-    public String getEmail()    { return email; }
+    public String getAccessToken() {
+        return accessToken;
+    }
+
+    public String getRefreshToken() {
+        return refreshToken;
+    }
+
+    public String getTokenType() {
+        return TOKEN_TYPE;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public String getEmail() {
+        return email;
+    }
 }
