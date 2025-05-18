@@ -23,6 +23,12 @@ public class UserService {
     }
 
     public User registerUser(String username, String email, String rawPassword) {
+        if (userRepository.existsByEmail(email)) {
+            throw new IllegalArgumentException("Email already in use");
+        }
+        if (userRepository.existsByUsername(username)) {
+            throw new IllegalArgumentException("Username already in use");
+        }
         User user = new User(email, passwordEncoder.encode(rawPassword));
         user.setUsername(username);
         return userRepository.save(user);

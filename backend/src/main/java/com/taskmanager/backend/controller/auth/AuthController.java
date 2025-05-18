@@ -51,7 +51,10 @@ public class AuthController {
             userService.registerUser(req.getUsername(), req.getEmail(), req.getPassword());
             return ResponseEntity.ok("User registered successfully");
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+            // 400 Bad Request с понятным сообщением
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(e.getMessage());
         }
     }
 
