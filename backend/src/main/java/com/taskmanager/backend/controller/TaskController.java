@@ -3,12 +3,16 @@ package com.taskmanager.backend.controller;
 import com.taskmanager.backend.dto.CreateTaskDTO;
 import com.taskmanager.backend.dto.TaskDTO;
 import com.taskmanager.backend.model.Task;
+import com.taskmanager.backend.security.service.UserDetailsImpl;
 import com.taskmanager.backend.service.TaskService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.stream.Collectors;
+
 @CrossOrigin(origins = "*")
 @RestController
 @RequestMapping("/tasks")
@@ -33,13 +37,12 @@ public class TaskController {
     }
 
     @PostMapping
-    public ResponseEntity<TaskDTO> createTask(@RequestBody CreateTaskDTO createTaskDTO) {
-        Task task = taskService.createTask(
-                createTaskDTO.getTitle(),
-                createTaskDTO.getContent(),
-                createTaskDTO.getUserId(),
-                createTaskDTO.getStatusId()
-        );
+    public ResponseEntity<TaskDTO> createTask(@RequestBody CreateTaskDTO dto) {
+        // Получаем ID пользователя из токена
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        Long userId = ((UserDetailsImpl) auth.getPrincipal()).getId();
+
+        Task task = taskService.createTask(dto.getTitle(), dto.getContent(), userId, dto.getStatusId());
         return ResponseEntity.ok(convertToDto(task));
     }
 
@@ -59,14 +62,11 @@ public class TaskController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<TaskDTO> updateTask(@PathVariable Long id, @RequestBody CreateTaskDTO createTaskDTO) {
-        Task updatedTask = taskService.updateTask(
-                id,
-                createTaskDTO.getTitle(),
-                createTaskDTO.getContent(),
-                createTaskDTO.getUserId(),
-                createTaskDTO.getStatusId()
-        );
+    public ResponseEntity<TaskDTO> updateTask(@PathVariable Long id, @RequestBody CreateTaskDTO dto) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        Long userId = ((UserDetailsImpl) auth.getPrincipal()).getId();
+
+        Task updatedTask = taskService.updateTask(id, dto.getTitle(), dto.getContent(), userId, dto.getStatusId());
         return ResponseEntity.ok(convertToDto(updatedTask));
     }
 

@@ -28,7 +28,6 @@ public class TaskService {
         Task task = new Task();
         task.setTitle(title);
         task.setContent(content);
-        // Устанавливаем связь с пользователем и статусом
         Optional<User> userOpt = userRepository.findById(userId);
         Optional<Status> statusOpt = statusRepository.findById(statusId);
         if (userOpt.isPresent() && statusOpt.isPresent()) {
