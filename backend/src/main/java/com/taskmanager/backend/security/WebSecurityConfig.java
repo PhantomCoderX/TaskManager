@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -30,7 +31,7 @@ public class WebSecurityConfig {
     private final AuthTokenFilter authTokenFilter;
     private final AuthEntryPointJwt unauthorizedHandler;
 
-    /* -------- DAO provider -------- */
+    /* ---------- DAO provider ---------- */
     @Bean
     public DaoAuthenticationProvider daoAuthenticationProvider() {
         DaoAuthenticationProvider p = new DaoAuthenticationProvider();
@@ -39,39 +40,46 @@ public class WebSecurityConfig {
         return p;
     }
 
-    /* -------- Password encoder -------- */
+    /* ---------- password encoder ---------- */
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
-    /* -------- AccessDenied → 401 -------- */
+    /* ---------- AccessDenied → 401 ---------- */
     @Bean
     public AccessDeniedHandler accessDeniedHandler() {
         return (req, res, ex) ->
                 res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Error: Unauthorized");
     }
 
-    /* -------- AuthManager -------- */
+    /* ---------- AuthManager ---------- */
     @Bean
     public AuthenticationManager authenticationManager(
             AuthenticationConfiguration cfg) throws Exception {
         return cfg.getAuthenticationManager();
     }
 
-    /* -------- Security filter chain -------- */
+    /* ---------- security chain ---------- */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+
         http
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(sm ->
                         sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(ex -> ex
-                        .authenticationEntryPoint(unauthorizedHandler)   // 401 вместо 403
+                        .authenticationEntryPoint(unauthorizedHandler)
                         .accessDeniedHandler(accessDeniedHandler()))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/**", "/api/auth/**").permitAll()   // ⬅ ОТКРЫТЫ ОБА ПРЕФИКСА
-                        .anyRequest().authenticated())
+                        /* публично — только три POST-эндпоинта (оба префикса) */
+                        .requestMatchers(HttpMethod.POST,
+                                "/auth/login", "/auth/register", "/auth/refresh-token",
+                                "/api/auth/login", "/api/auth/register", "/api/auth/refresh-token"
+                        ).permitAll()
+                        /* всё остальное требует действительный JWT */
+                        .anyRequest().authenticated()
+                )
                 .authenticationProvider(daoAuthenticationProvider())
                 .addFilterBefore(authTokenFilter, UsernamePasswordAuthenticationFilter.class);
 
