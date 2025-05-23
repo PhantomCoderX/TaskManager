@@ -3,7 +3,7 @@ import axios from 'axios';
 import { authService } from '../services/authService';
 
 const axiosInstance = axios.create({
-  baseURL: '/',               // proxy на localhost:8080
+  baseURL: '/api',               // proxy на localhost:8080
   headers: { 'Content-Type': 'application/json' }
 });
 

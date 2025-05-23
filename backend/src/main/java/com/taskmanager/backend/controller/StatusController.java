@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 @CrossOrigin(origins = "*")
 @RestController
-@RequestMapping("/statuses")
+@RequestMapping("/api/statuses")
 public class StatusController {
 
     private final StatusService statusService;

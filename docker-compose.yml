@@ -1,6 +1,7 @@
-version: '3.8'
+version: "3.8"
 
 services:
+# ──────────────────────── PostgreSQL ────────────────────────
   db:
     image: postgres:15-alpine
     environment:
@@ -17,12 +18,13 @@ services:
       timeout: 5s
       retries: 5
 
+# ──────────────────────── Back-end (Spring Boot) ────────────────────────
   backend:
     build: ./backend
     ports:
       - "8080:8080"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/taskmanager
+      SPRING_DATASOURCE_URL:      jdbc:postgresql://db:5432/taskmanager
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
     depends_on:
@@ -34,6 +36,7 @@ services:
       timeout: 5s
       retries: 5
 
+# ──────────────────────── Front-end (React + Nginx) ─────────────────────
   frontend:
     build: ./frontend
     ports:
@@ -42,7 +45,7 @@ services:
       backend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      test: ["CMD", "curl", "-f", "http://localhost"]
       interval: 10s
       timeout: 5s
       retries: 5
